@@ -12,14 +12,16 @@
     position: absolute; inset: 0; border: 4px solid rgba(0, 255, 255, 0.5); border-radius: 12px; margin: 10px; pointer-events: none;
   }
   .scan-guide::after {
-    content: "この枠の中にさかなを入れてね"; position: absolute; bottom: 10px; left: 0; right: 0;
-    text-align: center; color: rgba(255, 255, 255, 0.8); font-weight: bold; font-size: 14px; text-shadow: 1px 1px 2px #000;
+    content: "枠の中にさかなを入れてね"; position: absolute; bottom: 10px; left: 0; right: 0;
+    text-align: center; color: rgba(255, 255, 255, 0.9); font-weight: bold; font-size: 14px; text-shadow: 1px 1px 3px #000;
   }
 </style>
 </head>
 <body class="bg-slate-900 text-white w-screen h-screen">
 
-  <!-- モード選択画面 -->
+  <!-- ==========================================
+       1. モード選択画面
+       ========================================== -->
   <div id="modeSelect" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900">
     <h1 class="text-2xl md:text-4xl font-bold mb-4 text-cyan-400 tracking-wider text-center">☁️ バーチャルオーシャン 🐠</h1>
     <p class="mb-10 text-slate-300 text-center px-4">スマホでスキャンした魚が、パソコンの海にワープするよ！</p>
@@ -34,37 +36,60 @@
     </div>
   </div>
 
-  <!-- スキャナーモード (スマホ側) -->
-  <div id="scannerUI" class="hidden absolute inset-0 z-40 bg-slate-900 flex flex-col items-center pt-8">
-    <h2 class="text-xl text-cyan-400 font-bold mb-4">さかなをカメラでスキャンしよう！</h2>
-    <div class="relative w-80 h-80 rounded-xl overflow-hidden bg-white shadow-2xl">
+  <!-- ==========================================
+       2. スキャナーモード (スマホ側)
+       ========================================== -->
+  <div id="scannerUI" class="hidden absolute inset-0 z-40 bg-slate-900 flex flex-col items-center pt-6 overflow-y-auto">
+    <h2 class="text-xl text-cyan-400 font-bold mb-2">さかなをカメラでスキャン！</h2>
+    <p class="text-xs text-slate-300 mb-4 text-center px-2">※白い紙の上におき、明るい場所で撮ってね</p>
+    
+    <div class="relative w-72 h-72 rounded-xl overflow-hidden bg-white shadow-2xl shrink-0">
       <video id="cameraFeed" autoplay playsinline class="w-full h-full object-cover"></video>
       <div class="scan-guide"></div>
     </div>
-    <button id="scanBtn" class="mt-8 px-8 py-4 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-full text-xl shadow-[0_0_15px_rgba(245,158,11,0.5)] transform transition active:scale-95">
+    
+    <button id="scanBtn" class="mt-6 px-8 py-4 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-full text-xl shadow-[0_0_15px_rgba(245,158,11,0.5)] transform transition active:scale-95 shrink-0">
       ✨ スキャンして海へおくる！
     </button>
-    <div id="toast" class="hidden mt-6 px-6 py-3 font-bold rounded-full transition-opacity shadow-lg"></div>
+
+    <div id="toast" class="hidden mt-4 px-6 py-2 font-bold rounded-full transition-opacity shadow-lg text-sm shrink-0"></div>
+
+    <!-- プレビュー表示エリア（透明になりすぎていないか確認用） -->
+    <div id="previewArea" class="hidden mt-4 flex flex-col items-center shrink-0 pb-10">
+      <span class="text-xs text-amber-300 mb-1">【おくられた画像】</span>
+      <span class="text-[10px] text-slate-400 mb-2">※透明になった部分は黒く見えます。全部黒なら失敗です。</span>
+      <img id="previewImg" class="w-24 h-24 bg-slate-800 border-2 border-slate-600 rounded-lg object-contain p-1" />
+    </div>
   </div>
 
-  <!-- 水槽モード (パソコン側) -->
+  <!-- ==========================================
+       3. 水槽モード (パソコン側)
+       ========================================== -->
   <div id="aquariumUI" class="hidden absolute inset-0 z-30 ocean-bg">
     <canvas id="oceanCanvas" class="w-full h-full block"></canvas>
+    
     <div id="aqLoading" class="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
       <div class="px-4 py-2 bg-black/50 rounded-full text-cyan-300 text-sm font-bold border border-cyan-500/30">
         🌐 クラウド接続準備中...
       </div>
     </div>
+
+    <!-- 魚が到着したときのお知らせポップアップ -->
+    <div id="aqToast" class="hidden absolute top-16 left-1/2 transform -translate-x-1/2 px-8 py-3 bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold rounded-full shadow-[0_0_20px_rgba(245,158,11,0.6)] z-50 text-lg transition-all duration-300">
+      🐠 あたらしい魚がやってきた！
+    </div>
   </div>
 
-  <!-- Firebaseの設定とシステム -->
+  <!-- ==========================================
+       システム・通信スクリプト (Firebase連携)
+       ========================================== -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // ⬇️⬇️⬇️ 【重要】Firebaseで取得したあなたのキーに書き換えてください ⬇️⬇️⬇️
-const firebaseConfig = {
+    const firebaseConfig = {
   apiKey: "AIzaSyAPmHvYxVIK9lJpDShAQ1E1CyOe2ZkW4SM",
   authDomain: "virtual-ocean-499ad.firebaseapp.com",
   projectId: "virtual-ocean-499ad",
@@ -72,24 +97,22 @@ const firebaseConfig = {
   messagingSenderId: "191336602534",
   appId: "1:191336602534:web:a93c1d794419d51aefcd67"
 };
+
     // ⬆️⬆️⬆️ ここまで ⬆️⬆️⬆️
 
-    // エラーが起きても画面遷移ボタンが押せるようにする処理
     let db, auth;
     let currentUser = null;
     let isFirebaseReady = false;
 
     try {
       if (firebaseConfig.apiKey === "ここを書き換える") {
-        console.warn("⚠️ Firebaseのキーが設定されていません。通信機能は動きませんが、画面のテストは可能です。");
+        console.warn("⚠️ Firebaseキーが未設定です。");
       } else {
         const app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
         
-        signInAnonymously(auth).catch(err => {
-          console.error("匿名認証エラー: データベースの設定(Step 2)がオンになっているか確認してください。", err);
-        });
+        signInAnonymously(auth).catch(err => console.error("認証エラー:", err));
 
         onAuthStateChanged(auth, (user) => {
           currentUser = user;
@@ -101,7 +124,7 @@ const firebaseConfig = {
       console.error("Firebase初期化エラー:", e);
     }
 
-    // --- 画面切り替えロジック ---
+    // --- 画面切り替え ---
     let currentMode = null;
     
     document.getElementById('btnScanner').addEventListener('click', () => {
@@ -122,7 +145,7 @@ const firebaseConfig = {
     function showToast(msg, isError = false) {
       const toast = document.getElementById('toast');
       toast.textContent = msg;
-      toast.className = `mt-6 px-6 py-3 font-bold rounded-full transition-opacity shadow-lg ${isError ? 'bg-red-500' : 'bg-green-500'} text-white`;
+      toast.className = `mt-4 px-6 py-2 font-bold rounded-full transition-opacity shadow-lg text-sm shrink-0 ${isError ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`;
       toast.classList.remove('hidden');
       setTimeout(() => toast.classList.add('hidden'), 3000);
     }
@@ -140,17 +163,21 @@ const firebaseConfig = {
 
     function captureAndProcess() {
       const pCanvas = document.createElement('canvas');
-      pCanvas.width = 200; pCanvas.height = 200;
+      pCanvas.width = 300; pCanvas.height = 300; // 解像度を少しアップ
       const pctx = pCanvas.getContext('2d');
       const size = Math.min(video.videoWidth, video.videoHeight);
       const sx = (video.videoWidth - size) / 2;
       const sy = (video.videoHeight - size) / 2;
-      pctx.drawImage(video, sx, sy, size, size, 0, 0, 200, 200);
+      pctx.drawImage(video, sx, sy, size, size, 0, 0, 300, 300);
       
-      const imgData = pctx.getImageData(0, 0, 200, 200);
+      const imgData = pctx.getImageData(0, 0, 300, 300);
       const data = imgData.data;
       for (let i = 0; i < data.length; i += 4) {
-        if (data[i] > 180 && data[i+1] > 180 && data[i+2] > 180) data[i+3] = 0; 
+        // ★調整: 背景の白を透明にする処理 (明るすぎる場合はここを調整)
+        // RGBがすべて170以上なら透明にする
+        if (data[i] > 170 && data[i+1] > 170 && data[i+2] > 170) {
+          data[i+3] = 0; 
+        }
       }
       pctx.putImageData(imgData, 0, 0);
       return pCanvas.toDataURL('image/png');
@@ -161,10 +188,15 @@ const firebaseConfig = {
         showToast("クラウドの鍵が未設定か、接続エラーです", true); return;
       }
       showToast("おくっています... 🚀");
+      
       const base64Image = captureAndProcess();
       
+      // ★追加: プレビュー画面の表示
+      const previewImg = document.getElementById('previewImg');
+      previewImg.src = base64Image;
+      document.getElementById('previewArea').classList.remove('hidden');
+      
       try {
-        // "my_ocean_fishes" という引き出しにデータを保存します
         const dbCol = collection(db, 'my_ocean_fishes');
         await addDoc(dbCol, { image: base64Image, timestamp: Date.now() });
         showToast("海におくりました！ 🌊✨");
@@ -179,6 +211,7 @@ const firebaseConfig = {
     let ctx, w, h;
     let fishes = [];
     let seenDocs = new Set();
+    let isFirstLoad = true; // 初回読み込みフラグ
 
     function initAquarium() {
       ctx = canvas.getContext('2d');
@@ -186,6 +219,18 @@ const firebaseConfig = {
       window.addEventListener('resize', resize);
       resize();
       animateAquarium();
+    }
+
+    function showAquariumToast() {
+      const aqToast = document.getElementById('aqToast');
+      aqToast.classList.remove('hidden');
+      // 少し上に浮き上がるアニメーション用
+      aqToast.style.transform = 'translate(-50%, -10px)';
+      
+      setTimeout(() => {
+        aqToast.classList.add('hidden');
+        aqToast.style.transform = 'translate(-50%, 0)';
+      }, 4000);
     }
 
     function startFirestoreListener() {
@@ -202,12 +247,28 @@ const firebaseConfig = {
               const data = change.doc.data();
               if (data.image) {
                 const img = new Image();
-                img.onload = () => fishes.push(new Fish(img));
+                img.onload = () => {
+                  fishes.push(new Fish(img));
+                  // 初回読み込み（過去のデータの一斉読み込み）の時はトーストを出さない
+                  if (!isFirstLoad) {
+                    showAquariumToast();
+                  }
+                  
+                  // ★追加: 魚が増えすぎたら古いものから消す（上限30匹）
+                  if (fishes.length > 30) {
+                    fishes.shift();
+                  }
+                };
                 img.src = data.image;
               }
             }
           }
         });
+        
+        // 最初のデータの読み込みが終わったらフラグを折る
+        if (isFirstLoad) {
+          setTimeout(() => { isFirstLoad = false; }, 2000);
+        }
       }, (error) => console.error("通信エラー:", error));
     }
 
@@ -215,9 +276,13 @@ const firebaseConfig = {
       constructor(image) {
         this.image = image;
         this.y = Math.random() * (h - 200) + 100;
-        this.size = Math.random() * 0.4 + 0.6;
+        this.size = Math.random() * 0.5 + 0.5; // 大きさを調整
+        
         this.direction = Math.random() > 0.5 ? 1 : -1;
-        this.x = this.direction === 1 ? -150 : w + 150;
+        
+        // ★修正: 画面の外からではなく、画面の端（すぐ見える位置）から出現させる
+        this.x = this.direction === 1 ? 50 : w - 50;
+        
         this.speedX = (Math.random() * 1.0 + 0.5) * this.direction;
         this.wobbleSpeed = Math.random() * 0.02 + 0.01;
         this.wobbleAmount = Math.random() * 0.8 + 0.2;
@@ -227,6 +292,7 @@ const firebaseConfig = {
         this.x += this.speedX;
         this.wobbleTime += this.wobbleSpeed;
         this.y += Math.sin(this.wobbleTime) * this.wobbleAmount;
+        // 画面の端まで行ったら、反対から出てくる
         if ((this.direction === 1 && this.x > w + 200) || (this.direction === -1 && this.x < -200)) {
           this.direction *= -1; this.speedX *= -1; this.y = Math.random() * (h - 200) + 100;
         }
@@ -234,9 +300,9 @@ const firebaseConfig = {
       draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
-        if (this.direction === -1) ctx.scale(-1, 1);
-        const drawSize = 200 * this.size;
-        ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 5;
+        if (this.direction === -1) ctx.scale(-1, 1); // 進行方向へ反転
+        const drawSize = 250 * this.size;
+        ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 5;
         ctx.drawImage(this.image, -drawSize/2, -drawSize/2, drawSize, drawSize);
         ctx.restore();
       }
