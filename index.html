@@ -7,141 +7,102 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   body { font-family: 'Hiragino Maru Gothic Pro', 'Meiryo', sans-serif; overflow: hidden; touch-action: none; }
-  /* てんかん配慮: コントラストを抑えた深海のグラデーション背景 */
   .ocean-bg { background: linear-gradient(180deg, #0f2027 0%, #203a43 50%, #2c5364 100%); }
-  
-  /* カメラ領域のガイド枠 */
   .scan-guide {
-    position: absolute; inset: 0;
-    border: 4px solid rgba(0, 255, 255, 0.5);
-    border-radius: 12px;
-    margin: 10px;
-    pointer-events: none;
+    position: absolute; inset: 0; border: 4px solid rgba(0, 255, 255, 0.5); border-radius: 12px; margin: 10px; pointer-events: none;
   }
   .scan-guide::after {
-    content: "この枠の中にさかなを入れてね";
-    position: absolute; bottom: 10px; left: 0; right: 0;
-    text-align: center; color: rgba(255, 255, 255, 0.8);
-    font-weight: bold; font-size: 14px; text-shadow: 1px 1px 2px #000;
+    content: "この枠の中にさかなを入れてね"; position: absolute; bottom: 10px; left: 0; right: 0;
+    text-align: center; color: rgba(255, 255, 255, 0.8); font-weight: bold; font-size: 14px; text-shadow: 1px 1px 2px #000;
   }
 </style>
 </head>
 <body class="bg-slate-900 text-white w-screen h-screen">
 
-  <!-- ==========================================
-       1. モード選択画面 (最初に表示される)
-       ========================================== -->
+  <!-- モード選択画面 -->
   <div id="modeSelect" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900">
-    <h1 class="text-2xl md:text-4xl font-bold mb-4 text-cyan-400 tracking-wider text-center">
-      ☁️ クラウド・バーチャルオーシャン 🐠
-    </h1>
-    <p class="mb-10 text-slate-300 text-center px-4">
-      スマホでスキャンした魚が、パソコンの海にワープするよ！<br>
-      この端末はどちらとして使いますか？
-    </p>
+    <h1 class="text-2xl md:text-4xl font-bold mb-4 text-cyan-400 tracking-wider text-center">☁️ バーチャルオーシャン 🐠</h1>
+    <p class="mb-10 text-slate-300 text-center px-4">スマホでスキャンした魚が、パソコンの海にワープするよ！</p>
     
     <div class="flex flex-col md:flex-row gap-6">
       <button id="btnScanner" class="px-10 py-10 bg-indigo-600 hover:bg-indigo-500 rounded-2xl flex flex-col items-center shadow-lg transition transform hover:scale-105 border-2 border-indigo-400">
-        <span class="text-5xl mb-4">📱</span>
-        <span class="text-xl font-bold">スキャナーになる</span>
-        <span class="text-sm mt-2 text-indigo-200">（スマホ・タブレット用）</span>
+        <span class="text-5xl mb-4">📱</span><span class="text-xl font-bold">スキャナーになる</span>
       </button>
-      
       <button id="btnAquarium" class="px-10 py-10 bg-cyan-700 hover:bg-cyan-600 rounded-2xl flex flex-col items-center shadow-lg transition transform hover:scale-105 border-2 border-cyan-400">
-        <span class="text-5xl mb-4">🖥️</span>
-        <span class="text-xl font-bold">水槽になる</span>
-        <span class="text-sm mt-2 text-cyan-100">（展示するパソコン用）</span>
+        <span class="text-5xl mb-4">🖥️</span><span class="text-xl font-bold">水槽になる</span>
       </button>
     </div>
   </div>
 
-  <!-- ==========================================
-       2. スキャナーモード (スマホ側)
-       ========================================== -->
+  <!-- スキャナーモード (スマホ側) -->
   <div id="scannerUI" class="hidden absolute inset-0 z-40 bg-slate-900 flex flex-col items-center pt-8">
     <h2 class="text-xl text-cyan-400 font-bold mb-4">さかなをカメラでスキャンしよう！</h2>
-    
-    <!-- カメラ映像表示エリア -->
     <div class="relative w-80 h-80 rounded-xl overflow-hidden bg-white shadow-2xl">
       <video id="cameraFeed" autoplay playsinline class="w-full h-full object-cover"></video>
       <div class="scan-guide"></div>
     </div>
-    
-    <p class="mt-4 text-sm text-slate-400 text-center px-4">
-      あかるい場所で、白い紙の上にパーツをならべてね。<br>
-      背景の「白色」は自動で透明になります。
-    </p>
-    
-    <button id="scanBtn" class="mt-8 px-8 py-4 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-full text-xl shadow-[0_0_15px_rgba(245,158,11,0.5)] transform transition active:scale-95 flex items-center gap-2">
+    <button id="scanBtn" class="mt-8 px-8 py-4 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-full text-xl shadow-[0_0_15px_rgba(245,158,11,0.5)] transform transition active:scale-95">
       ✨ スキャンして海へおくる！
     </button>
-
-    <!-- メッセージ表示用 -->
     <div id="toast" class="hidden mt-6 px-6 py-3 font-bold rounded-full transition-opacity shadow-lg"></div>
   </div>
 
-  <!-- ==========================================
-       3. 水槽モード (パソコン側)
-       ========================================== -->
+  <!-- 水槽モード (パソコン側) -->
   <div id="aquariumUI" class="hidden absolute inset-0 z-30 ocean-bg">
     <canvas id="oceanCanvas" class="w-full h-full block"></canvas>
-    
-    <!-- クラウド接続待機中 -->
     <div id="aqLoading" class="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
       <div class="px-4 py-2 bg-black/50 rounded-full text-cyan-300 text-sm font-bold border border-cyan-500/30">
-        🌐 クラウドの海に接続中...
-      </div>
-      <div class="text-xs text-cyan-100/50 pl-2">
-        ※スマホから送られた魚がここに現れます
+        🌐 クラウド接続準備中...
       </div>
     </div>
   </div>
 
-
-  <!-- ==========================================
-       システム・通信スクリプト (Firebase連携)
-       ========================================== -->
+  <!-- Firebaseの設定とシステム -->
   <script type="module">
-    // Firebaseモジュールのインポート（クラウドデータベース機能）
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // --- Firebase 初期設定 ---
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'virtual-ocean-proto';
+    // ⬇️⬇️⬇️ 【重要】Firebaseで取得したあなたのキーに書き換えてください ⬇️⬇️⬇️
+const firebaseConfig = {
+  apiKey: "AIzaSyAPmHvYxVIK9lJpDShAQ1E1CyOe2ZkW4SM",
+  authDomain: "virtual-ocean-499ad.firebaseapp.com",
+  projectId: "virtual-ocean-499ad",
+  storageBucket: "virtual-ocean-499ad.firebasestorage.app",
+  messagingSenderId: "191336602534",
+  appId: "1:191336602534:web:a93c1d794419d51aefcd67"
+};
+    // ⬆️⬆️⬆️ ここまで ⬆️⬆️⬆️
+
+    // エラーが起きても画面遷移ボタンが押せるようにする処理
+    let db, auth;
     let currentUser = null;
+    let isFirebaseReady = false;
 
-    // 認証処理（データベースを安全に使うための準備）
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (e) {
-        console.error("通信の準備に失敗しました:", e);
+    try {
+      if (firebaseConfig.apiKey === "ここを書き換える") {
+        console.warn("⚠️ Firebaseのキーが設定されていません。通信機能は動きませんが、画面のテストは可能です。");
+      } else {
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+        
+        signInAnonymously(auth).catch(err => {
+          console.error("匿名認証エラー: データベースの設定(Step 2)がオンになっているか確認してください。", err);
+        });
+
+        onAuthStateChanged(auth, (user) => {
+          currentUser = user;
+          isFirebaseReady = true;
+          if(user && currentMode === 'aquarium') startFirestoreListener();
+        });
       }
-    };
-    
-    onAuthStateChanged(auth, (user) => {
-      currentUser = user;
-      // ユーザーが確定したら、各モードのクラウド連携を許可
-      if(user && currentMode === 'aquarium') {
-        startFirestoreListener();
-      }
-    });
-
-    // アプリ起動時に認証開始
-    initAuth();
-
+    } catch(e) {
+      console.error("Firebase初期化エラー:", e);
+    }
 
     // --- 画面切り替えロジック ---
-    let currentMode = null; // 'scanner' or 'aquarium'
+    let currentMode = null;
     
     document.getElementById('btnScanner').addEventListener('click', () => {
       currentMode = 'scanner';
@@ -155,10 +116,9 @@
       document.getElementById('modeSelect').classList.add('hidden');
       document.getElementById('aquariumUI').classList.remove('hidden');
       initAquarium();
-      if(currentUser) startFirestoreListener(); // すでに認証済みなら即リスナー開始
+      if(isFirebaseReady && currentUser) startFirestoreListener();
     });
 
-    // トースト（通知）表示機能
     function showToast(msg, isError = false) {
       const toast = document.getElementById('toast');
       toast.textContent = msg;
@@ -167,210 +127,135 @@
       setTimeout(() => toast.classList.add('hidden'), 3000);
     }
 
-
-    // ==========================================
-    // スキャナー機能 (カメラ & クロマキー処理)
-    // ==========================================
+    // --- スキャナー機能 ---
     const video = document.getElementById('cameraFeed');
-    let stream = null;
-
     async function startCamera() {
       try {
-        // スマホのアウトカメラ（背面カメラ）を優先して起動
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 640 } } 
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 640 } } });
         video.srcObject = stream;
       } catch (err) {
-        showToast("カメラが見つかりません。権限を確認してください", true);
+        showToast("カメラが見つかりません", true);
       }
     }
 
     function captureAndProcess() {
-      // 画像処理用の見えないキャンバスを作成 (通信量を抑えるため 200x200 の低解像度にリサイズ)
-      const processCanvas = document.createElement('canvas');
-      processCanvas.width = 200;
-      processCanvas.height = 200;
-      const pctx = processCanvas.getContext('2d');
-      
-      // カメラ映像の中央を正方形に切り取って描画
+      const pCanvas = document.createElement('canvas');
+      pCanvas.width = 200; pCanvas.height = 200;
+      const pctx = pCanvas.getContext('2d');
       const size = Math.min(video.videoWidth, video.videoHeight);
       const sx = (video.videoWidth - size) / 2;
       const sy = (video.videoHeight - size) / 2;
       pctx.drawImage(video, sx, sy, size, size, 0, 0, 200, 200);
       
-      // 【クロマキー処理】白い紙を透明にする
       const imgData = pctx.getImageData(0, 0, 200, 200);
       const data = imgData.data;
       for (let i = 0; i < data.length; i += 4) {
-        // R(赤), G(緑), B(青) がすべて180以上なら「明るい背景」とみなして透明(Alpha=0)にする
-        if (data[i] > 180 && data[i+1] > 180 && data[i+2] > 180) {
-          data[i+3] = 0; 
-        }
+        if (data[i] > 180 && data[i+1] > 180 && data[i+2] > 180) data[i+3] = 0; 
       }
       pctx.putImageData(imgData, 0, 0);
-      
-      // 処理した画像を文字列データ(Base64)に変換して返す
-      return processCanvas.toDataURL('image/png');
+      return pCanvas.toDataURL('image/png');
     }
 
     document.getElementById('scanBtn').addEventListener('click', async () => {
-      if (!currentUser) {
-        showToast("通信の準備中です。少し待ってね", true); return;
+      if (!isFirebaseReady) {
+        showToast("クラウドの鍵が未設定か、接続エラーです", true); return;
       }
-      
       showToast("おくっています... 🚀");
-      // 1. 写真を撮って背景を消す
       const base64Image = captureAndProcess();
       
-      // 2. クラウド（Firebase）に画像データを送信する
       try {
-        const dbCol = collection(db, 'artifacts', appId, 'public', 'data', 'scanned_fishes');
-        await addDoc(dbCol, {
-          image: base64Image,
-          timestamp: Date.now()
-        });
+        // "my_ocean_fishes" という引き出しにデータを保存します
+        const dbCol = collection(db, 'my_ocean_fishes');
+        await addDoc(dbCol, { image: base64Image, timestamp: Date.now() });
         showToast("海におくりました！ 🌊✨");
       } catch(e) {
         console.error(e);
-        showToast("エラーがおきました。もう一度ためしてね", true);
+        showToast("エラーがおきました", true);
       }
     });
 
-
-    // ==========================================
-    // 水槽（シミュレーション）機能
-    // ==========================================
+    // --- 水槽機能 ---
     const canvas = document.getElementById('oceanCanvas');
     let ctx, w, h;
     let fishes = [];
-    let seenDocs = new Set(); // すでに表示した魚のIDを記憶
+    let seenDocs = new Set();
 
     function initAquarium() {
       ctx = canvas.getContext('2d');
-      
-      function resize() {
-        w = window.innerWidth;
-        h = window.innerHeight;
-        canvas.width = w;
-        canvas.height = h;
-      }
+      function resize() { w = window.innerWidth; h = window.innerHeight; canvas.width = w; canvas.height = h; }
       window.addEventListener('resize', resize);
       resize();
       animateAquarium();
     }
 
-    // クラウドから新しい魚が送られてくるのを「監視（Listen）」する
     function startFirestoreListener() {
       const loadingEl = document.getElementById('aqLoading');
-      if(loadingEl) loadingEl.innerHTML = '<div class="px-4 py-2 bg-green-500/50 rounded-full text-white text-sm font-bold border border-green-400">✅ クラウド接続OK。魚を待っています...</div>';
+      if(loadingEl) loadingEl.innerHTML = '<div class="px-4 py-2 bg-green-500/50 rounded-full text-white text-sm font-bold border border-green-400">✅ クラウド接続OK。魚を待っています</div>';
 
-      const dbCol = collection(db, 'artifacts', appId, 'public', 'data', 'scanned_fishes');
-      
-      // データが追加されたら自動的に発火する
+      const dbCol = collection(db, 'my_ocean_fishes');
       onSnapshot(dbCol, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
           if (change.type === 'added') {
             const docId = change.doc.id;
-            // まだ水槽にいない新しい魚の場合
             if (!seenDocs.has(docId)) {
               seenDocs.add(docId);
               const data = change.doc.data();
               if (data.image) {
-                // 画像データからImageオブジェクトを作り、水槽に放つ
                 const img = new Image();
-                img.onload = () => {
-                  fishes.push(new Fish(img));
-                };
+                img.onload = () => fishes.push(new Fish(img));
                 img.src = data.image;
               }
             }
           }
         });
-      }, (error) => {
-        console.error("クラウド通信エラー:", error);
-      });
+      }, (error) => console.error("通信エラー:", error));
     }
 
-    // てんかん配慮：ゆっくり、ゆったり動く魚クラス
     class Fish {
       constructor(image) {
         this.image = image;
         this.y = Math.random() * (h - 200) + 100;
-        this.size = Math.random() * 0.4 + 0.6; // 少し大きめに表示
-        
+        this.size = Math.random() * 0.4 + 0.6;
         this.direction = Math.random() > 0.5 ? 1 : -1;
         this.x = this.direction === 1 ? -150 : w + 150;
-        
-        // 動きは極めてゆっくり（てんかん配慮）
         this.speedX = (Math.random() * 1.0 + 0.5) * this.direction;
         this.wobbleSpeed = Math.random() * 0.02 + 0.01;
         this.wobbleAmount = Math.random() * 0.8 + 0.2;
         this.wobbleTime = Math.random() * Math.PI * 2;
       }
-
       update() {
         this.x += this.speedX;
-        // サイン波を使って、ゆっくり波打つように上下に動く
         this.wobbleTime += this.wobbleSpeed;
         this.y += Math.sin(this.wobbleTime) * this.wobbleAmount;
-
-        // 画面外に出たら、反対側からゆっくり戻ってくる
-        if ((this.direction === 1 && this.x > w + 200) || 
-            (this.direction === -1 && this.x < -200)) {
-          this.direction *= -1;
-          this.speedX *= -1;
-          this.y = Math.random() * (h - 200) + 100;
+        if ((this.direction === 1 && this.x > w + 200) || (this.direction === -1 && this.x < -200)) {
+          this.direction *= -1; this.speedX *= -1; this.y = Math.random() * (h - 200) + 100;
         }
       }
-
       draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
         if (this.direction === -1) ctx.scale(-1, 1);
-        
         const drawSize = 200 * this.size;
-        // ゆったりとした動きを邪魔しないよう、影をつけて浮遊感を演出
-        ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        ctx.shadowBlur = 10;
-        ctx.shadowOffsetY = 5;
-        
+        ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 5;
         ctx.drawImage(this.image, -drawSize/2, -drawSize/2, drawSize, drawSize);
         ctx.restore();
       }
     }
 
-    // 背景の泡エフェクト（落ち着いた動き）
     const bubbles = Array.from({length: 40}, () => ({
-      x: Math.random() * 2000, y: Math.random() * 2000,
-      size: Math.random() * 4 + 1, speed: Math.random() * 0.5 + 0.2
+      x: Math.random() * 2000, y: Math.random() * 2000, size: Math.random() * 4 + 1, speed: Math.random() * 0.5 + 0.2
     }));
 
     function animateAquarium() {
-      // 前のフレームを消す
       ctx.clearRect(0, 0, w, h);
-
-      // 泡の描画
       ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
       bubbles.forEach(b => {
-        // 画面幅に合わせて配置を調整
         let bx = b.x % w;
-        ctx.beginPath();
-        ctx.arc(bx, b.y, b.size, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(bx, b.y, b.size, 0, Math.PI * 2); ctx.fill();
         b.y -= b.speed;
-        if (b.y < -10) {
-          b.y = h + 10;
-          b.x = Math.random() * w; // 復活時はランダムなX座標
-        }
+        if (b.y < -10) { b.y = h + 10; b.x = Math.random() * w; }
       });
-
-      // 魚の更新と描画
-      fishes.forEach(fish => {
-        fish.update();
-        fish.draw();
-      });
-
+      fishes.forEach(fish => { fish.update(); fish.draw(); });
       requestAnimationFrame(animateAquarium);
     }
   </script>
