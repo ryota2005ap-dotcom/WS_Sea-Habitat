@@ -7,7 +7,24 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   body { font-family: 'Hiragino Maru Gothic Pro', 'Meiryo', sans-serif; overflow: hidden; touch-action: none; }
-  .ocean-bg { background: linear-gradient(180deg, #0f2027 0%, #203a43 50%, #2c5364 100%); }
+  
+  /* ==========================================
+     ★背景画像の設定はここ！
+     ========================================== */
+  .ocean-bg { 
+    /* デフォルトのグラデーション背景 */
+    background-color: #1a4a5e;
+    
+    /* AIで作った画像などを背景にしたい場合は、下の行の「/*」と「* /」を消して、
+       URLの部分を画像のリンク（またはBase64データ）に書き換えてください。
+    */
+     background-image: url('blob:https://gemini.google.com/6b747f76-0c5f-4658-862a-ac56439627d2'); 
+    
+    background-size: cover;
+    background-position: bottom;
+    background-repeat: no-repeat;
+  }
+
   .scan-guide {
     position: absolute; inset: 0; border: 4px solid rgba(0, 255, 255, 0.5); border-radius: 12px; margin: 10px; pointer-events: none;
   }
@@ -15,18 +32,24 @@
     content: "枠の中にさかなを入れてね"; position: absolute; bottom: 10px; left: 0; right: 0;
     text-align: center; color: rgba(255, 255, 255, 0.9); font-weight: bold; font-size: 14px; text-shadow: 1px 1px 3px #000;
   }
+  .debug-panel {
+    position: absolute; top: 10px; left: 10px; z-index: 100;
+    background: rgba(0,0,0,0.8); color: #0f0; padding: 10px;
+    border-radius: 8px; font-family: monospace; font-size: 12px;
+    width: 300px; max-height: 200px; overflow-y: auto;
+    border: 1px solid #0f0; pointer-events: none;
+  }
 </style>
 </head>
 <body class="bg-slate-900 text-white w-screen h-screen">
 
-  <!-- ==========================================
-       1. モード選択画面
-       ========================================== -->
+  <!-- デバッグパネル -->
+  <div id="debugLog" class="debug-panel"><div>[システム] 起動しました</div></div>
+
+  <!-- 1. モード選択画面 -->
   <div id="modeSelect" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900">
     <h1 class="text-2xl md:text-4xl font-bold mb-4 text-cyan-400 tracking-wider text-center">☁️ バーチャルオーシャン 🐠</h1>
-    <p class="mb-10 text-slate-300 text-center px-4">スマホでスキャンした魚が、パソコンの海にワープするよ！</p>
-    
-    <div class="flex flex-col md:flex-row gap-6">
+    <div class="flex flex-col md:flex-row gap-6 mt-10">
       <button id="btnScanner" class="px-10 py-10 bg-indigo-600 hover:bg-indigo-500 rounded-2xl flex flex-col items-center shadow-lg transition transform hover:scale-105 border-2 border-indigo-400">
         <span class="text-5xl mb-4">📱</span><span class="text-xl font-bold">スキャナーになる</span>
       </button>
@@ -36,57 +59,50 @@
     </div>
   </div>
 
-  <!-- ==========================================
-       2. スキャナーモード (スマホ側)
-       ========================================== -->
-  <div id="scannerUI" class="hidden absolute inset-0 z-40 bg-slate-900 flex flex-col items-center pt-6 overflow-y-auto">
-    <h2 class="text-xl text-cyan-400 font-bold mb-2">さかなをカメラでスキャン！</h2>
-    <p class="text-xs text-slate-300 mb-4 text-center px-2">※白い紙の上におき、明るい場所で撮ってね</p>
-    
+  <!-- 2. スキャナーモード -->
+  <div id="scannerUI" class="hidden absolute inset-0 z-40 bg-slate-900 flex flex-col items-center pt-16 overflow-y-auto">
     <div class="relative w-72 h-72 rounded-xl overflow-hidden bg-white shadow-2xl shrink-0">
       <video id="cameraFeed" autoplay playsinline class="w-full h-full object-cover"></video>
       <div class="scan-guide"></div>
     </div>
-    
     <button id="scanBtn" class="mt-6 px-8 py-4 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-full text-xl shadow-[0_0_15px_rgba(245,158,11,0.5)] transform transition active:scale-95 shrink-0">
       ✨ スキャンして海へおくる！
     </button>
-
-    <div id="toast" class="hidden mt-4 px-6 py-2 font-bold rounded-full transition-opacity shadow-lg text-sm shrink-0"></div>
-
-    <!-- プレビュー表示エリア（透明になりすぎていないか確認用） -->
     <div id="previewArea" class="hidden mt-4 flex flex-col items-center shrink-0 pb-10">
       <span class="text-xs text-amber-300 mb-1">【おくられた画像】</span>
-      <span class="text-[10px] text-slate-400 mb-2">※透明になった部分は黒く見えます。全部黒なら失敗です。</span>
       <img id="previewImg" class="w-24 h-24 bg-slate-800 border-2 border-slate-600 rounded-lg object-contain p-1" />
     </div>
   </div>
 
-  <!-- ==========================================
-       3. 水槽モード (パソコン側)
-       ========================================== -->
+  <!-- 3. 水槽モード -->
   <div id="aquariumUI" class="hidden absolute inset-0 z-30 ocean-bg">
     <canvas id="oceanCanvas" class="w-full h-full block"></canvas>
     
-    <div id="aqLoading" class="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
-      <div class="px-4 py-2 bg-black/50 rounded-full text-cyan-300 text-sm font-bold border border-cyan-500/30">
-        🌐 クラウド接続準備中...
+    <!-- カウンター表示 -->
+    <div class="absolute top-4 right-4 bg-black/60 px-5 py-3 rounded-2xl text-cyan-300 font-bold border border-cyan-500/50 shadow-lg backdrop-blur-sm">
+      <div class="text-sm text-cyan-100">ただいまの海</div>
+      <div class="text-2xl mt-1">
+        <span id="speciesCount" class="text-yellow-400">0</span> <span class="text-sm">種類 /</span> 
+        <span id="fishCount">0</span> <span class="text-sm">匹</span>
       </div>
     </div>
 
-    <!-- 魚が到着したときのお知らせポップアップ -->
     <div id="aqToast" class="hidden absolute top-16 left-1/2 transform -translate-x-1/2 px-8 py-3 bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold rounded-full shadow-[0_0_20px_rgba(245,158,11,0.6)] z-50 text-lg transition-all duration-300">
       🐠 あたらしい魚がやってきた！
     </div>
   </div>
 
-  <!-- ==========================================
-       システム・通信スクリプト (Firebase連携)
-       ========================================== -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    function logDebug(msg) {
+      const logger = document.getElementById('debugLog');
+      const time = new Date().toLocaleTimeString();
+      logger.innerHTML += `<div>[${time}] ${msg}</div>`;
+      logger.scrollTop = logger.scrollHeight;
+    }
 
     // ⬇️⬇️⬇️ 【重要】Firebaseで取得したあなたのキーに書き換えてください ⬇️⬇️⬇️
     const firebaseConfig = {
@@ -106,27 +122,24 @@
 
     try {
       if (firebaseConfig.apiKey === "ここを書き換える") {
-        console.warn("⚠️ Firebaseキーが未設定です。");
+        logDebug("⚠️ Firebaseキーが設定されていません。");
       } else {
         const app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
         
-        signInAnonymously(auth).catch(err => console.error("認証エラー:", err));
-
+        signInAnonymously(auth).catch(err => logDebug(`❌ 認証エラー: ${err.message}`));
         onAuthStateChanged(auth, (user) => {
-          currentUser = user;
-          isFirebaseReady = true;
-          if(user && currentMode === 'aquarium') startFirestoreListener();
+          if (user) {
+            currentUser = user;
+            isFirebaseReady = true;
+            if(currentMode === 'aquarium') startFirestoreListener();
+          }
         });
       }
-    } catch(e) {
-      console.error("Firebase初期化エラー:", e);
-    }
+    } catch(e) { logDebug(`❌ システムエラー: ${e.message}`); }
 
-    // --- 画面切り替え ---
     let currentMode = null;
-    
     document.getElementById('btnScanner').addEventListener('click', () => {
       currentMode = 'scanner';
       document.getElementById('modeSelect').classList.add('hidden');
@@ -138,32 +151,22 @@
       currentMode = 'aquarium';
       document.getElementById('modeSelect').classList.add('hidden');
       document.getElementById('aquariumUI').classList.remove('hidden');
+      document.getElementById('debugLog').classList.add('hidden'); // 水槽モードではデバッグを隠す
       initAquarium();
       if(isFirebaseReady && currentUser) startFirestoreListener();
     });
 
-    function showToast(msg, isError = false) {
-      const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.className = `mt-4 px-6 py-2 font-bold rounded-full transition-opacity shadow-lg text-sm shrink-0 ${isError ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`;
-      toast.classList.remove('hidden');
-      setTimeout(() => toast.classList.add('hidden'), 3000);
-    }
-
-    // --- スキャナー機能 ---
     const video = document.getElementById('cameraFeed');
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 640 } } });
         video.srcObject = stream;
-      } catch (err) {
-        showToast("カメラが見つかりません", true);
-      }
+      } catch (err) { logDebug("❌ カメラ起動失敗"); }
     }
 
     function captureAndProcess() {
       const pCanvas = document.createElement('canvas');
-      pCanvas.width = 300; pCanvas.height = 300; // 解像度を少しアップ
+      pCanvas.width = 300; pCanvas.height = 300;
       const pctx = pCanvas.getContext('2d');
       const size = Math.min(video.videoWidth, video.videoHeight);
       const sx = (video.videoWidth - size) / 2;
@@ -173,45 +176,28 @@
       const imgData = pctx.getImageData(0, 0, 300, 300);
       const data = imgData.data;
       for (let i = 0; i < data.length; i += 4) {
-        // ★調整: 背景の白を透明にする処理 (明るすぎる場合はここを調整)
-        // RGBがすべて170以上なら透明にする
-        if (data[i] > 170 && data[i+1] > 170 && data[i+2] > 170) {
-          data[i+3] = 0; 
-        }
+        if (data[i] > 170 && data[i+1] > 170 && data[i+2] > 170) { data[i+3] = 0; }
       }
       pctx.putImageData(imgData, 0, 0);
       return pCanvas.toDataURL('image/png');
     }
 
     document.getElementById('scanBtn').addEventListener('click', async () => {
-      if (!isFirebaseReady) {
-        showToast("クラウドの鍵が未設定か、接続エラーです", true); return;
-      }
-      showToast("おくっています... 🚀");
-      
+      if (!isFirebaseReady) return;
       const base64Image = captureAndProcess();
-      
-      // ★追加: プレビュー画面の表示
-      const previewImg = document.getElementById('previewImg');
-      previewImg.src = base64Image;
+      document.getElementById('previewImg').src = base64Image;
       document.getElementById('previewArea').classList.remove('hidden');
-      
       try {
         const dbCol = collection(db, 'my_ocean_fishes');
         await addDoc(dbCol, { image: base64Image, timestamp: Date.now() });
-        showToast("海におくりました！ 🌊✨");
-      } catch(e) {
-        console.error(e);
-        showToast("エラーがおきました", true);
-      }
+      } catch(e) {}
     });
 
-    // --- 水槽機能 ---
     const canvas = document.getElementById('oceanCanvas');
     let ctx, w, h;
     let fishes = [];
     let seenDocs = new Set();
-    let isFirstLoad = true; // 初回読み込みフラグ
+    const MAX_FISHES = 60; // 子供が増えるので上限を少し増やす
 
     function initAquarium() {
       ctx = canvas.getContext('2d');
@@ -221,22 +207,7 @@
       animateAquarium();
     }
 
-    function showAquariumToast() {
-      const aqToast = document.getElementById('aqToast');
-      aqToast.classList.remove('hidden');
-      // 少し上に浮き上がるアニメーション用
-      aqToast.style.transform = 'translate(-50%, -10px)';
-      
-      setTimeout(() => {
-        aqToast.classList.add('hidden');
-        aqToast.style.transform = 'translate(-50%, 0)';
-      }, 4000);
-    }
-
     function startFirestoreListener() {
-      const loadingEl = document.getElementById('aqLoading');
-      if(loadingEl) loadingEl.innerHTML = '<div class="px-4 py-2 bg-green-500/50 rounded-full text-white text-sm font-bold border border-green-400">✅ クラウド接続OK。魚を待っています</div>';
-
       const dbCol = collection(db, 'my_ocean_fishes');
       onSnapshot(dbCol, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
@@ -248,59 +219,167 @@
               if (data.image) {
                 const img = new Image();
                 img.onload = () => {
-                  fishes.push(new Fish(img));
-                  // 初回読み込み（過去のデータの一斉読み込み）の時はトーストを出さない
-                  if (!isFirstLoad) {
-                    showAquariumToast();
-                  }
+                  // スキャンされた魚には固有の「種別ID」を振る
+                  const speciesId = 'species_' + docId;
+                  fishes.push(new Fish(img, speciesId, 1, false));
                   
-                  // ★追加: 魚が増えすぎたら古いものから消す（上限30匹）
-                  if (fishes.length > 30) {
-                    fishes.shift();
-                  }
+                  // ポップアップ表示
+                  const aqToast = document.getElementById('aqToast');
+                  aqToast.classList.remove('hidden');
+                  setTimeout(() => aqToast.classList.add('hidden'), 4000);
                 };
                 img.src = data.image;
               }
             }
           }
         });
-        
-        // 最初のデータの読み込みが終わったらフラグを折る
-        if (isFirstLoad) {
-          setTimeout(() => { isFirstLoad = false; }, 2000);
-        }
-      }, (error) => console.error("通信エラー:", error));
+      });
     }
 
+    // ==========================================
+    // 多機能になった「魚」のクラス
+    // ==========================================
     class Fish {
-      constructor(image) {
+      constructor(image, speciesId, sizeRatio, isChild) {
         this.image = image;
+        this.speciesId = speciesId; // 種類を判別するためのID
+        this.isDead = false;
+        
+        // 誕生時間（寿命と出産タイミングの計算用）
+        this.birthTime = Date.now();
+        this.reproduceCount = 0;
+        this.lastReproduceTime = this.birthTime;
+        // 10秒〜20秒(10000〜20000ミリ秒)の間に最初の出産
+        this.targetReproduceDelay = Math.random() * 10000 + 10000;
+        
+        // サイズ設定
+        this.baseSize = Math.random() * 0.4 + 0.6; // スキャン元の基準サイズ
+        this.size = this.baseSize * sizeRatio;     // 子供なら小さくなる
+
+        // 配置と動き
         this.y = Math.random() * (h - 200) + 100;
-        this.size = Math.random() * 0.5 + 0.5; // 大きさを調整
-        
         this.direction = Math.random() > 0.5 ? 1 : -1;
+        this.x = isChild ? this.x : (this.direction === 1 ? -100 : w + 100);
         
-        // ★修正: 画面の外からではなく、画面の端（すぐ見える位置）から出現させる
-        this.x = this.direction === 1 ? 50 : w - 50;
+        this.baseSpeedX = (Math.random() * 1.0 + 0.5);
+        this.speedX = this.baseSpeedX * this.direction;
         
-        this.speedX = (Math.random() * 1.0 + 0.5) * this.direction;
+        // ゆらゆら
         this.wobbleSpeed = Math.random() * 0.02 + 0.01;
         this.wobbleAmount = Math.random() * 0.8 + 0.2;
         this.wobbleTime = Math.random() * Math.PI * 2;
+
+        // アニメーション状態管理
+        this.spinState = { active: false, axis: '', angle: 0 };
+        this.dashState = { active: false, timer: 0, mult: 1 };
       }
+
       update() {
-        this.x += this.speedX;
+        let now = Date.now();
+
+        // 1. 寿命チェック (3分 = 180,000ミリ秒)
+        if (now - this.birthTime > 180000) {
+          this.isDead = true;
+          return;
+        }
+
+        // 2. 出産チェック
+        if (this.reproduceCount === 0 && now - this.birthTime > this.targetReproduceDelay) {
+          // 初回の出産
+          this.reproduce(now);
+        } else if (this.reproduceCount > 0 && Math.random() < 0.0005 && now - this.lastReproduceTime > 30000) {
+          // 2回目以降は、前回から30秒以上経っていて、かつ超低確率
+          this.reproduce(now);
+        }
+
+        // 3. 気まぐれな動き（ダッシュ・ストップ）
+        if (!this.dashState.active && Math.random() < 0.005) {
+          this.dashState.active = true;
+          this.dashState.timer = Math.random() * 60 + 30; // 0.5〜1.5秒間
+          let r = Math.random();
+          if (r < 0.3) this.dashState.mult = 0;         // 急停止
+          else if (r < 0.6) this.dashState.mult = 3;    // 急発進
+          else this.dashState.mult = 0.5;               // 少し遅く
+        }
+
+        let currentSpeedX = this.speedX;
+        if (this.dashState.active) {
+          currentSpeedX = this.baseSpeedX * this.direction * this.dashState.mult;
+          this.dashState.timer--;
+          if (this.dashState.timer <= 0) this.dashState.active = false;
+        }
+
+        // 4. 回転アニメーションのトリガー
+        if (!this.spinState.active && Math.random() < 0.003) {
+          this.spinState.active = true;
+          const axes = ['x', 'y', 'z'];
+          this.spinState.axis = axes[Math.floor(Math.random() * 3)];
+          this.spinState.angle = 0;
+        }
+        if (this.spinState.active) {
+          this.spinState.angle += 0.15; // 回転スピード
+          if (this.spinState.angle >= Math.PI * 2) {
+            this.spinState.active = false;
+            this.spinState.angle = 0;
+          }
+        }
+
+        // 座標更新
+        this.x += currentSpeedX;
         this.wobbleTime += this.wobbleSpeed;
         this.y += Math.sin(this.wobbleTime) * this.wobbleAmount;
-        // 画面の端まで行ったら、反対から出てくる
+        
+        // 画面外ループ
         if ((this.direction === 1 && this.x > w + 200) || (this.direction === -1 && this.x < -200)) {
-          this.direction *= -1; this.speedX *= -1; this.y = Math.random() * (h - 200) + 100;
+          this.direction *= -1; 
+          this.speedX = this.baseSpeedX * this.direction; 
+          this.y = Math.random() * (h - 200) + 100;
         }
       }
+
+      // 出産メソッド
+      reproduce(now) {
+        this.reproduceCount++;
+        this.lastReproduceTime = now;
+        
+        // 1〜5匹の子供
+        let N = Math.floor(Math.random() * 5) + 1; 
+        // 子供のサイズ計算 (1匹なら1/2倍、2匹なら1/3倍...)
+        let childSizeRatio = 1 / (N + 1); 
+
+        for (let i = 0; i < N; i++) {
+          if (fishes.length >= MAX_FISHES) fishes.shift(); // 上限管理
+          
+          let child = new Fish(this.image, this.speciesId, childSizeRatio, true);
+          // 親の周りに配置
+          child.x = this.x + (Math.random() * 100 - 50);
+          child.y = this.y + (Math.random() * 100 - 50);
+          // 進行方向は親と同じにする
+          child.direction = this.direction;
+          child.speedX = child.baseSpeedX * child.direction;
+          
+          fishes.push(child);
+        }
+      }
+
       draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
-        if (this.direction === -1) ctx.scale(-1, 1); // 進行方向へ反転
+        
+        // 3D風の回転処理
+        if (this.spinState.active) {
+          if (this.spinState.axis === 'z') {
+            ctx.rotate(this.spinState.angle); // 通常の回転
+          } else if (this.spinState.axis === 'y') {
+            ctx.scale(Math.cos(this.spinState.angle), 1); // 横に潰れる(Y軸回転風)
+          } else if (this.spinState.axis === 'x') {
+            ctx.scale(1, Math.cos(this.spinState.angle)); // 縦に潰れる(X軸回転風)
+          }
+        }
+
+        // 進行方向への反転
+        if (this.direction === -1) ctx.scale(-1, 1); 
+        
         const drawSize = 250 * this.size;
         ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 5;
         ctx.drawImage(this.image, -drawSize/2, -drawSize/2, drawSize, drawSize);
@@ -313,7 +392,10 @@
     }));
 
     function animateAquarium() {
+      // もし背景画像を設定している場合、透明度のあるクリアではなく完全クリアにする
       ctx.clearRect(0, 0, w, h);
+      
+      // 泡
       ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
       bubbles.forEach(b => {
         let bx = b.x % w;
@@ -321,7 +403,18 @@
         b.y -= b.speed;
         if (b.y < -10) { b.y = h + 10; b.x = Math.random() * w; }
       });
+
+      // 寿命(死んだ)魚を取り除きながら更新・描画
+      fishes = fishes.filter(fish => !fish.isDead);
       fishes.forEach(fish => { fish.update(); fish.draw(); });
+
+      // UIカウンターの更新
+      document.getElementById('fishCount').innerText = fishes.length;
+      
+      // ユニークな「種類」の数を数える (Setを使って重複を省く)
+      const uniqueSpecies = new Set(fishes.map(f => f.speciesId)).size;
+      document.getElementById('speciesCount').innerText = uniqueSpecies;
+
       requestAnimationFrame(animateAquarium);
     }
   </script>
